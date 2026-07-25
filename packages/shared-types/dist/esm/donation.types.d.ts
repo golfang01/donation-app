@@ -11,6 +11,7 @@ export interface DonationSubmissionPayload {
 export interface DonationSubmissionResponse {
     donationId: string;
     status: VerificationStatus;
+    message?: string;
 }
 export interface DonationRecord {
     id: string;

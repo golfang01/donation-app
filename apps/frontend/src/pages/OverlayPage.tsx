@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { socket } from '../lib/socket';
+import { api } from '../lib/api';
 import type { DonationAlertPayload } from '@donation-app/shared-types';
 import { SOCKET_EVENTS } from '@donation-app/shared-types';
 
-const DISPLAY_DURATION_MS = 7000;
+const BASE_DISPLAY_DURATION_MS = 7000;
+const MESSAGE_DISPLAY_DURATION_MS = 30000;
 const CARD_CLIP = 'polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 0 100%)';
+const ALERT_SOUND_URL = '/sounds/donation-alert.mp3';
+const ALERT_VOLUME = 0.7;
 
 interface AlertState {
   active: DonationAlertPayload | null;
@@ -14,6 +18,17 @@ interface AlertState {
 
 export default function OverlayPage() {
   const [state, setState] = useState<AlertState>({ active: null, queue: [] });
+  const soundRef = useRef<HTMLAudioElement | null>(null);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pre-load the alert sound once on mount so the first donation
+  // doesn't stall on file fetch before it can play.
+  useEffect(() => {
+    const audio = new Audio(ALERT_SOUND_URL);
+    audio.volume = ALERT_VOLUME;
+    audio.preload = 'auto';
+    soundRef.current = audio;
+  }, []);
 
   function enqueueAlert(payload: DonationAlertPayload) {
     setState((prev) =>
@@ -30,10 +45,11 @@ export default function OverlayPage() {
     });
   }
 
+  // Connect to the backend socket and listen for verified donations.
   useEffect(() => {
     socket.connect();
-    const handleDonation = (payload: DonationAlertPayload) => enqueueAlert(payload);
 
+    const handleDonation = (payload: DonationAlertPayload) => enqueueAlert(payload);
     socket.on(SOCKET_EVENTS.DONATION_VERIFIED, handleDonation);
     socket.on('connect', () => console.log('[overlay] connected to backend'));
     socket.on('disconnect', () => console.log('[overlay] disconnected from backend'));
@@ -44,11 +60,76 @@ export default function OverlayPage() {
     };
   }, []);
 
+  // Auto-advance the queue after the display duration expires.
   useEffect(() => {
     if (!state.active) return;
-    const timer = setTimeout(advanceQueue, DISPLAY_DURATION_MS);
+    const duration = state.active.message
+      ? MESSAGE_DISPLAY_DURATION_MS
+      : BASE_DISPLAY_DURATION_MS;
+    const timer = setTimeout(advanceQueue, duration);
     return () => clearTimeout(timer);
   }, [state.active]);
+
+  // Audio sequence: alert sound → TTS (if there's a message).
+  // Keyed on donationId so it fires exactly once per new active alert.
+  const activeDonationId = state.active?.donationId;
+  const activeMessage = state.active?.message;
+
+  useEffect(() => {
+    if (!activeDonationId) return;
+
+    let cancelled = false;
+
+    async function speakMessage() {
+      if (!activeMessage || cancelled) return;
+      try {
+        const { data } = await api.post<{ audioContent: string }>(
+          '/api/tts/synthesize',
+          { text: activeMessage },
+          { timeout: 10000 }
+        );
+
+        if (cancelled) return;
+
+        const ttsAudio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+        ttsAudio.volume = ALERT_VOLUME;
+        ttsAudioRef.current = ttsAudio;
+        await ttsAudio.play();
+      } catch (err) {
+        // Non-fatal — the visual card and alert sound already fired.
+        // The donation is not lost; only the TTS step failed.
+        console.warn('[overlay] TTS fetch or playback failed:', err);
+      }
+    }
+
+    const sound = soundRef.current;
+    if (sound) {
+      sound.currentTime = 0;
+      // Chain TTS to start the moment the alert sound finishes,
+      // so the two audio clips never step on each other.
+      sound.onended = () => speakMessage();
+      sound.play().catch((err) => {
+        console.warn('[overlay] Alert sound was blocked or failed:', err);
+        // If the sound effect itself couldn't play, still attempt TTS
+        // rather than silently skipping the whole audio sequence.
+        speakMessage();
+      });
+    } else {
+      speakMessage();
+    }
+
+    return () => {
+      cancelled = true;
+      if (sound) {
+        sound.onended = null;
+        sound.pause();
+      }
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.pause();
+        ttsAudioRef.current = null;
+      }
+    };
+  }, [activeDonationId, activeMessage]);
 
   return (
     <div className="w-screen h-screen flex items-end justify-center pb-16">
@@ -61,18 +142,27 @@ export default function OverlayPage() {
             exit={{ opacity: 0, y: -20, scale: 0.98 }}
             transition={{ duration: 0.6, times: [0, 0.5, 0.7, 1], ease: 'easeOut' }}
             style={{ clipPath: CARD_CLIP }}
-            className="bg-panel border border-signal/30 shadow-[0_0_40px_rgba(56,225,198,0.25)] px-8 py-6 min-w-[420px] max-w-[560px]"
+            className="bg-panel border border-signal/30 shadow-[0_0_40px_rgba(56,225,198,0.25)] px-8 py-6 min-w-105 max-w-140"
           >
             <div className="flex items-center gap-2 mb-3">
               <span className="w-2 h-2 rounded-full bg-live animate-pulse" />
-              <span className="font-mono text-xs tracking-[0.2em] text-ink-muted uppercase">Signal detected</span>
+              <span className="font-mono text-xs tracking-[0.2em] text-ink-muted uppercase">
+                Signal detected
+              </span>
             </div>
+
             <h1 className="font-display text-3xl text-ink uppercase tracking-wide truncate">
               {state.active.senderName}
             </h1>
-            <p className="font-mono text-2xl text-gold mt-1">฿{state.active.amount.toLocaleString()}</p>
+
+            <p className="font-mono text-2xl text-gold mt-1">
+              ฿{state.active.amount.toLocaleString()}
+            </p>
+
             {state.active.message && (
-              <p className="font-body text-ink-muted mt-3 leading-relaxed break-words">{state.active.message}</p>
+              <p className="font-body text-ink-muted mt-3 leading-relaxed wrap-break-words">
+                {state.active.message}
+              </p>
             )}
           </motion.div>
         )}
