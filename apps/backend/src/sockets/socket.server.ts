@@ -1,9 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import {
-  ClientToServerEvents,
-  ServerToClientEvents,
-} from '@donation-app/shared-types';
+import type { ClientToServerEvents, ServerToClientEvents } from '@donation-app/shared-types';
 
 type TypedIOServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
 
@@ -11,19 +8,21 @@ let io: TypedIOServer | null = null;
 
 export function initializeSocket(httpServer: HttpServer): TypedIOServer {
   io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-    cors: {
-      // Tighten this to the exact OBS overlay/frontend origin once deployed —
-      // '*' is fine for local dev only.
-      origin: process.env.CORS_ORIGIN ?? '*',
-      methods: ['GET', 'POST'],
-    },
+    cors: { origin: process.env.CORS_ORIGIN ?? '*', methods: ['GET', 'POST'] },
   });
 
   io.on('connection', (socket) => {
-    console.log(`[socket] client connected: ${socket.id} (total: ${io?.engine.clientsCount})`);
+    console.log(`[socket] connected: ${socket.id}`);
+
+    // Desktop donation form calls this immediately after connecting,
+    // so the backend knows which socket to notify when the mobile slip arrives.
+    socket.on('join:session', (sessionId: string) => {
+      socket.join(`session:${sessionId}`);
+      console.log(`[socket] ${socket.id} joined room session:${sessionId}`);
+    });
 
     socket.on('disconnect', (reason) => {
-      console.log(`[socket] client disconnected: ${socket.id} (${reason})`);
+      console.log(`[socket] disconnected: ${socket.id} (${reason})`);
     });
   });
 
@@ -31,8 +30,6 @@ export function initializeSocket(httpServer: HttpServer): TypedIOServer {
 }
 
 export function getIO(): TypedIOServer {
-  if (!io) {
-    throw new Error('Socket.io accessed before initialization. Call initializeSocket() in server.ts first.');
-  }
+  if (!io) throw new Error('Socket.io not initialized. Call initializeSocket() first.');
   return io;
 }

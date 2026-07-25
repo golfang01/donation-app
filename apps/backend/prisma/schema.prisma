@@ -20,7 +20,7 @@ model Donation {
   amount             Decimal             @db.Decimal(12, 2)
   slipImageUrl       String
   verificationStatus VerificationStatus  @default(PENDING)
-  slipOkReferenceId  String?
+  slipOkReferenceId  String?  @unique
   slipOkRawResponse  Json?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

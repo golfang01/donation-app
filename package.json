@@ -16,5 +16,9 @@
   "license": "ISC",
   "devDependencies": {
     "cypress": "^15.17.0"
+  },
+  "dependencies": {
+    "express-rate-limit": "^8.5.2",
+    "file-type": "^16.5.4"
   }
 }

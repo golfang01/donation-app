@@ -1,6 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0A0D12;
+  --color-panel: #131820;
+  --color-panel-raised: #1B2230;
+  --color-signal: #38E1C6;
+  --color-live: #FF3B5C;
+  --color-gold: #FFB627;
+  --color-ink: #EDEFF2;
+  --color-ink-muted: #7C8696;
+
+  --font-display: "Oswald", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
 
 html, body, #root {
   margin: 0;

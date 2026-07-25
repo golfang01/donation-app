@@ -10,10 +10,10 @@ export interface DonationSubmissionPayload {
   amount: number;
 }
 
-// เหลือไว้แค่อันเดียว
 export interface DonationSubmissionResponse {
   donationId: string;
   status: VerificationStatus;
+  message?: string;
 }
 
 export interface DonationRecord {
