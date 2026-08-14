@@ -14,7 +14,7 @@
 ## 🧪 QA & Testing Artifacts
 นอกจากโค้ด Automation แล้ว ผมยังให้ความสำคัญกับการวางแผนการทดสอบ (Test Planning) เพื่อให้ครอบคลุมกรณีที่มีความเสี่ยงสูง (Risk-Based Testing)
 
-* 🔗 **[คลิกเพื่อดูเอกสาร Test Scenario (https://docs.google.com/spreadsheets/d/1FwKxyuA_PvCbafsbN_n3bVKhVTvN0wdrACsJjF40L_g/edit?usp=sharing)]**
+* 🔗 **[คลิกเพื่อดูเอกสาร Test Scenario (https://docs.google.com/spreadsheets/d/17ZZhiba2lVBJ-JpCcFmzaEBL9KdkIBgvVIpu5abslnw/edit?usp=sharing)]**
 
 **โครงสร้างการทดสอบอัตโนมัติ (Cypress E2E):**
 ```text
