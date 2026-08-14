@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent, ChangeEvent, ReactNode } from 'react';
 import { Radio, Upload, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import generatePayload from 'promptpay-qr';
 import QRCode from 'qrcode';
 import { api } from '../lib/api';
@@ -30,6 +31,7 @@ export default function DonationPage() {
   const [sessionId] = useState<string>(() => uuidv4());
   const [mobileQrDataUrl, setMobileQrDataUrl] = useState<string | null>(null);
   const [slipAttachedViaPhone, setSlipAttachedViaPhone] = useState<string | null>(null);
+  const [showMobileUpload, setShowMobileUpload] = useState(false);
 
   const isValidAmount = !!amount && !Number.isNaN(Number(amount)) && Number(amount) > 0;
   const meterPercent = Math.min(100, ((Number(amount) || 0) / MAX_METER_AMOUNT) * 100);
@@ -81,6 +83,7 @@ export default function DonationPage() {
       if (payload.sessionId !== sessionId) return;
       setSlipAttachedViaPhone(payload.slipUrl);
       setSlipFile(null);
+      setShowMobileUpload(false); // auto-collapse the QR panel once slip arrives
     };
 
     socket.on(SOCKET_EVENTS.SLIP_UPLOADED, handleSlipUploaded);
@@ -115,8 +118,6 @@ export default function DonationPage() {
     if (slipFile) {
       formData.append('slipImage', slipFile);
     } else if (slipAttachedViaPhone) {
-      // Slip already saved server-side via mobile upload — send its path
-      // instead of uploading again.
       formData.append('slipImageUrl', slipAttachedViaPhone);
     }
 
@@ -150,6 +151,7 @@ export default function DonationPage() {
     setFormError(null);
     setFailureMessage(null);
     setQrDataUrl(null);
+    setShowMobileUpload(false);
     setSubmitState('idle');
   }
 
@@ -268,57 +270,101 @@ export default function DonationPage() {
             )}
           </div>
 
-          {/* Mobile cross-device slip upload */}
-          <div>
-            <label className="block font-mono text-xs text-ink-muted uppercase tracking-wide mb-1.5">
-              Upload slip from your phone
-            </label>
-            {slipAttachedViaPhone ? (
-              <div className="flex items-center gap-3 border border-signal/40 bg-panel-raised px-4 py-3">
-                <span className="w-2 h-2 rounded-full bg-signal animate-pulse shrink-0" />
-                <span className="font-body text-sm text-signal">Slip received from phone ✓</span>
-              </div>
-            ) : (
-              <>
-                {mobileQrDataUrl && (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="bg-white p-3 rounded-sm">
-                      <img src={mobileQrDataUrl} alt="Scan to upload slip from phone" className="w-44 h-44" />
-                    </div>
-                    <p className="font-body text-xs text-ink-muted text-center leading-relaxed">
-                      Scan with your phone camera to upload the slip from your gallery or camera.
-                    </p>
-                    {window.location.hostname === 'localhost' && (
-                      <p className="font-mono text-xs text-live text-center">
-                        ⚠ You're on localhost — access this page via your LAN IP
-                        (e.g. http://192.168.x.x:5173) so the phone QR works.
-                      </p>
-                    )}
-                  </div>
-                )}
-                <p className="font-body text-xs text-ink-muted mt-2 text-center">— or upload manually below —</p>
-              </>
-            )}
-          </div>
-
-          {/* Manual slip upload */}
+          {/* Slip upload — manual + collapsible phone upload */}
           <div>
             <label className="block font-mono text-xs text-ink-muted uppercase tracking-wide mb-1.5">
               Transfer slip
             </label>
-            <label className="flex items-center gap-3 border border-dashed border-white/15 px-4 py-3 cursor-pointer hover:border-signal/50 transition-colors">
-              <Upload className="w-4 h-4 text-ink-muted shrink-0" />
-              <span className="font-body text-sm text-ink-muted truncate">
-                {slipFile ? slipFile.name : 'Upload a photo of your slip'}
-              </span>
-              <input
-                type="file"
-                data-cy="slip-upload"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
+
+            {slipAttachedViaPhone ? (
+              // Confirmed state — phone slip received
+              <div className="flex items-center gap-3 border border-signal/40 bg-panel-raised px-4 py-3">
+                <span className="w-2 h-2 rounded-full bg-signal animate-pulse shrink-0" />
+                <span className="font-body text-sm text-signal">Slip received from phone ✓</span>
+                <button
+                  type="button"
+                  onClick={() => setSlipAttachedViaPhone(null)}
+                  className="ml-auto font-mono text-xs text-ink-muted hover:text-live transition-colors"
+                >
+                  clear
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Manual file upload */}
+                <label className="flex items-center gap-3 border border-dashed border-white/15 px-4 py-3 cursor-pointer hover:border-signal/50 transition-colors">
+                  <Upload className="w-4 h-4 text-ink-muted shrink-0" />
+                  <span className="font-body text-sm text-ink-muted truncate">
+                    {slipFile ? slipFile.name : 'Upload from this device'}
+                  </span>
+                  <input
+                    type="file"
+                    data-cy="slip-upload"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Phone upload toggle button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMobileUpload((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 border border-white/10 bg-panel-raised hover:border-signal/40 transition-colors"
+                >
+                  <span className="font-mono text-xs text-ink-muted uppercase tracking-wide">
+                    📱 Upload from phone
+                  </span>
+                  <motion.span
+                    animate={{ rotate: showMobileUpload ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="font-mono text-xs text-ink-muted"
+                  >
+                    ▾
+                  </motion.span>
+                </button>
+
+                {/* Collapsible mobile QR panel */}
+                <AnimatePresence initial={false}>
+                  {showMobileUpload && (
+                    <motion.div
+                      key="mobile-qr-panel"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex flex-col items-center gap-3 border border-white/10 bg-panel-raised px-4 py-4">
+                        {mobileQrDataUrl ? (
+                          <>
+                            <div className="bg-white p-3 rounded-sm">
+                              <img
+                                src={mobileQrDataUrl}
+                                alt="Scan to upload slip from phone"
+                                className="w-44 h-44"
+                              />
+                            </div>
+                            <p className="font-body text-xs text-ink-muted text-center leading-relaxed">
+                              Scan with your phone camera. Select your slip image — it'll
+                              appear here automatically.
+                            </p>
+                            {window.location.hostname === 'localhost' && (
+                              <p className="font-mono text-xs text-live text-center">
+                                ⚠ Access via LAN IP so your phone can reach this page
+                                (e.g. http://192.168.x.x:5173).
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="font-body text-xs text-ink-muted">Generating QR…</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
           {formError && <p className="font-body text-sm text-live">{formError}</p>}

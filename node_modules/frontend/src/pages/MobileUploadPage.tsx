@@ -76,7 +76,7 @@ export default function MobileUploadPage() {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
+                //   capture="environment"
                   onChange={handleFileChange}
                   className="hidden"
                 />
