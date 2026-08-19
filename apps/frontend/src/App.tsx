@@ -8,6 +8,7 @@ import ProtectedRoute       from './components/ProtectedRoute';
 import GoalWidget           from './pages/widgets/GoalWidget';
 import TimerWidget          from './pages/widgets/TimerWidget';
 import TopDonatorsWidget    from './pages/widgets/TopDonatorsWidget';
+import AlertWidget from './pages/widgets/AlertWidget';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
       <Route path="/widget/goal"          element={<GoalWidget />} />
       <Route path="/widget/timer"         element={<TimerWidget />} />
       <Route path="/widget/top-donators"  element={<TopDonatorsWidget />} />
+      <Route path="/widget/alert" element={<AlertWidget />} />
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />

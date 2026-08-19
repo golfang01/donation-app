@@ -9,8 +9,7 @@ router.use(requireAdmin);
 
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const settings = await getSettings();
-    return res.json(settings);
+    return res.json(await getSettings());
   } catch (err) {
     console.error('[admin/settings] GET error:', err);
     return res.status(500).json({ error: 'Internal server error.' });
@@ -19,30 +18,50 @@ router.get('/', async (_req: Request, res: Response) => {
 
 router.patch('/', async (req: Request, res: Response) => {
   try {
-    const body = req.body as Record<string, unknown>;
-    const data: Record<string, unknown> = {};
+    const b = req.body as Record<string, unknown>;
+    const d: Record<string, unknown> = {};
 
-    // Scalar fields — only included if the key was actually sent
-    if (body.slipOkMode        !== undefined) data.slipOkMode        = String(body.slipOkMode);
-    if (body.minTtsAmount      !== undefined) data.minTtsAmount      = Number(body.minTtsAmount);
-    if (body.profanityList     !== undefined) data.profanityList     = String(body.profanityList);
-    if (body.goalLabel         !== undefined) data.goalLabel         = String(body.goalLabel);
-    if (body.goalTargetAmount  !== undefined) data.goalTargetAmount  = Number(body.goalTargetAmount);
-    if (body.goalCurrentAmount !== undefined) data.goalCurrentAmount = Number(body.goalCurrentAmount);
-    if (body.topDonatorsLimit  !== undefined) data.topDonatorsLimit  = Number(body.topDonatorsLimit);
-    if (body.timerEnabled      !== undefined) data.timerEnabled      = Boolean(body.timerEnabled);
-    if (body.timerBaseAmount   !== undefined) data.timerBaseAmount   = Number(body.timerBaseAmount);
-    if (body.timerBaseMinutes  !== undefined) data.timerBaseMinutes  = Number(body.timerBaseMinutes);
+    // ── String fields ──────────────────────────────────────────────────────
+    const strings = [
+      'slipOkMode',
+      'profanityList',
+      // Goal
+      'goalLabel','goalBarColor','goalTextColor','goalFont',
+      // Top donators
+      'topFont','topTextColor','topAccentColor','topBarColor','topLayout',
+      // Timer
+      'timerFont','timerTextColor','timerExpiredColor','timerBackgroundColor',
+      'timerLayout','timerAnimation',
+      // Alert
+      'alertFont','alertTextColor','alertAccentColor',
+      'alertGifUrl','alertSoundUrl','alertAnimation',
+    ];
+    strings.forEach((k) => { if (b[k] !== undefined) d[k] = String(b[k]); });
 
-    // Nullable DateTime fields — must use 'in' check so explicit null is forwarded
-    if ('goalEndsAt' in body) {
-      data.goalEndsAt = body.goalEndsAt ? new Date(body.goalEndsAt as string) : null;
-    }
-    if ('timerEndsAt' in body) {
-      data.timerEndsAt = body.timerEndsAt ? new Date(body.timerEndsAt as string) : null;
-    }
+    // ── Number fields ──────────────────────────────────────────────────────
+    const numbers = [
+      'minTtsAmount',
+      'goalTargetAmount','goalCurrentAmount',
+      'topDonatorsLimit',
+      'timerBaseAmount','timerBaseMinutes',
+      'alertDuration',
+    ];
+    numbers.forEach((k) => { if (b[k] !== undefined) d[k] = Number(b[k]); });
 
-    const updated = await updateSettings(data as never);
+    // ── Boolean fields ─────────────────────────────────────────────────────
+    const booleans = [
+      'goalShowCountdown','goalShowPercent',
+      'topShowBar',
+      'timerEnabled',
+      'alertTtsEnabled','alertShowGif',
+    ];
+    booleans.forEach((k) => { if (b[k] !== undefined) d[k] = Boolean(b[k]); });
+
+    // ── Nullable DateTime fields ───────────────────────────────────────────
+    if ('goalEndsAt'  in b) d.goalEndsAt  = b.goalEndsAt  ? new Date(b.goalEndsAt  as string) : null;
+    if ('timerEndsAt' in b) d.timerEndsAt = b.timerEndsAt ? new Date(b.timerEndsAt as string) : null;
+
+    const updated = await updateSettings(d as never);
 
     // Push updated goal state to widget immediately
     getIO().emit(SOCKET_EVENTS.GOAL_UPDATED, {

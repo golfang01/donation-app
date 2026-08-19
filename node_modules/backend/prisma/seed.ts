@@ -34,23 +34,31 @@ async function main() {
   // before any route tries to read it.
   await prisma.settings.upsert({
   where:  { id: 'singleton' },
-  update: {}, // never overwrite existing settings on re-seed
+  update: {},
   create: {
-    id:               'singleton',
-    slipOkMode:       'mock',
-    minTtsAmount:     0,
-    profanityList:    '',
-    goalLabel:        'Donation Goal',
-    goalTargetAmount: 0,
-    goalCurrentAmount: 0,
-    goalEndsAt:       null,
-    topDonatorsLimit: 5,
-    timerEnabled:     false,
-    timerEndsAt:      null,
-    timerBaseAmount:  100,
-    timerBaseMinutes: 1,
+    id: 'singleton',
+    // System
+    slipOkMode: 'mock', minTtsAmount: 0, profanityList: '',
+    // Goal
+    goalLabel: 'Donation Goal', goalTargetAmount: 0, goalCurrentAmount: 0,
+    goalEndsAt: null, goalBarColor: '#38E1C6', goalTextColor: '#FFFFFF',
+    goalFont: 'Oswald', goalShowCountdown: true, goalShowPercent: true,
+    // Top donators
+    topDonatorsLimit: 5, topFont: 'Oswald', topTextColor: '#FFFFFF',
+    topAccentColor: '#FFB627', topBarColor: '#38E1C6',
+    topLayout: 'list', topShowBar: true,
+    // Timer
+    timerEnabled: false, timerEndsAt: null,
+    timerBaseAmount: 100, timerBaseMinutes: 1,
+    timerFont: 'IBM Plex Mono', timerTextColor: '#38E1C6',
+    timerExpiredColor: '#FF3B5C', timerBackgroundColor: 'transparent',
+    timerLayout: 'digital', timerAnimation: 'pulse',
+    // Alert
+    alertFont: 'Oswald', alertTextColor: '#FFFFFF', alertAccentColor: '#38E1C6',
+    alertGifUrl: '', alertSoundUrl: '', alertAnimation: 'slide-up',
+    alertDuration: 7000, alertTtsEnabled: true, alertShowGif: false,
   },
-  });
+});
 
 main()
   .catch((e) => {
