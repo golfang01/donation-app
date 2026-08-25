@@ -83,8 +83,8 @@ useEffect(() => {
 
   // ── Mobile cross-device upload ────────────────────────────────────────────
   useEffect(() => {
-    const { hostname, port } = window.location;
-    const url = `http://${hostname}:${port}/mobile-upload?sessionId=${sessionId}`;
+   const origin = window.location.origin; // e.g. "https://your-app.vercel.app"
+const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
     QRCode.toDataURL(url, { width: 160, margin: 2, color: { dark: '#18181b', light: '#ffffff' } })
       .then(setMobileQrDataUrl).catch(console.error);
 

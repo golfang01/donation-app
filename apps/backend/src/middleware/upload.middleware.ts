@@ -1,19 +1,22 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-const UPLOAD_DIR = path.join(__dirname, '../../uploads');
+// 1. ตั้งค่าการเชื่อมต่อ Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `slip-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
+// 2. สร้าง Storage สำหรับเซฟรูปขึ้น Cloud
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'donation-slips',
+    // เพิ่ม webp เข้าไปให้ตรงกับ Mime Types ด้านล่าง
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'], 
+  } as any,
 });
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];

@@ -7,9 +7,21 @@ type TypedIOServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
 let io: TypedIOServer | null = null;
 
 export function initializeSocket(httpServer: HttpServer): TypedIOServer {
-  io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-    cors: { origin: process.env.CORS_ORIGIN ?? '*', methods: ['GET', 'POST'] },
-  });
+  const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+if (process.env.NODE_ENV !== 'production') {
+  ALLOWED_ORIGINS.push('http://localhost:5173', 'http://localhost:4000');
+}
+  io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : '*',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
 
   io.on('connection', (socket) => {
     console.log(`[socket] connected: ${socket.id}`);

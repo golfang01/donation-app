@@ -1,0 +1,1 @@
+ cloud_name: 'rm60fj5a',         api_key: '484851685922827'   CLOUDINARY_API_SECRET'JJv60_08LubIRpbLC7Yi6QdlaPs'

@@ -38,7 +38,12 @@ interface AppSettings {
 }
 
 // ── Design tokens ──────────────────────────────────────────────────────────
-const FRONTEND_BASE = (import.meta.env.VITE_API_BASE_URL as string)?.replace(':4000', ':5173') ?? 'http://localhost:5173';
+// Add to frontend .env:
+// VITE_FRONTEND_URL=https://your-app.vercel.app
+
+const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_URL
+  ?? import.meta.env.VITE_API_BASE_URL?.replace(':4000', ':5173')
+  ?? 'http://localhost:5173';
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   VERIFIED: { label: 'Verified',  className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -196,9 +201,25 @@ function CollapsibleSection({ icon, title, badge, children }: {
 // OBS preview frame
 function PreviewFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative rounded-xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)', minHeight: '150px' }}>
-      <span className="absolute top-2 right-2 text-xs text-white/25 font-mono uppercase tracking-wider">OBS Preview</span>
-      <div className="flex items-center justify-center min-h-37.5">{children}</div>
+    <div
+      className="relative rounded-xl overflow-hidden border border-[#E5E3DD]"
+      style={{
+        // CSS checkerboard — the standard "transparency" signal in design tools
+        backgroundImage:
+          'linear-gradient(45deg, #E5E3DD 25%, transparent 25%), ' +
+          'linear-gradient(-45deg, #E5E3DD 25%, transparent 25%), ' +
+          'linear-gradient(45deg, transparent 75%, #E5E3DD 75%), ' +
+          'linear-gradient(-45deg, transparent 75%, #E5E3DD 75%)',
+        backgroundSize: '16px 16px',
+        backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+        backgroundColor: '#F3F1ED',
+        minHeight: '150px',
+      }}
+    >
+      <span className="absolute top-2 right-2 text-xs text-[#6B726A]/40 font-mono uppercase tracking-wider pointer-events-none">
+        OBS
+      </span>
+      <div className="flex items-center justify-center min-h-[150px]">{children}</div>
     </div>
   );
 }

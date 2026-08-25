@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "start:migrate": "npx prisma migrate deploy && node dist/server.js"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.json prisma/seed.ts"
@@ -18,6 +21,7 @@
     "@prisma/client": "6.19.3",
     "axios": "^1.18.0",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^1.41.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -27,6 +31,7 @@
     "google-tts-api": "^2.0.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
+    "multer-storage-cloudinary": "^4.0.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
