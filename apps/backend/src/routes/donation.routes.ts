@@ -1,8 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient, Prisma, VerificationStatus as PrismaVerificationStatus } from '@prisma/client';
 import rateLimit from 'express-rate-limit';
-import fs from 'fs';
-import { fromFile } from 'file-type';
 import { upload } from '../middleware/upload.middleware';
 import { verifySlip } from '../services/slipOk.service';
 import { getIO } from '../sockets/socket.server';
@@ -20,8 +18,6 @@ import { VerificationStatus, SOCKET_EVENTS } from '@donation-app/shared-types';
 
 const router  = Router();
 const prisma  = new PrismaClient();
-
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const donationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -47,25 +43,11 @@ router.post(
         return res.status(400).json({ error: 'amount must be a positive number.' });
       }
 
-      // Support both a freshly-uploaded file and a pre-uploaded path
-      // from the cross-device mobile flow.
       const preUploadedUrl =
         (req.body as Record<string, string>).slipImageUrl ?? null;
 
       if (!req.file && !preUploadedUrl) {
         return res.status(400).json({ error: 'slipImage file is required.' });
-      }
-
-      // Magic-byte validation only for new uploads — pre-uploaded files
-      // already passed this check in upload.routes.ts.
-      if (req.file) {
-        const detectedType = await fromFile(req.file.path);
-        if (!detectedType || !ALLOWED_MIME_TYPES.includes(detectedType.mime)) {
-          fs.unlinkSync(req.file.path);
-          return res
-            .status(400)
-            .json({ error: 'Uploaded file is not a valid image.' });
-        }
       }
 
       // กำหนด slipImageUrl ให้รับค่าจาก Cloudinary โดยตรง (รองรับทั้งอัปโหลดใหม่และพรีอัปโหลด)
@@ -79,8 +61,6 @@ router.post(
         amount:     parsedAmount,
       };
 
-      // Write PENDING record immediately so we have an audit trail even
-      // if SlipOK times out or the process crashes mid-verification.
       const donation = await prisma.donation.create({
         data: {
           senderName:         payload.senderName,
@@ -91,7 +71,7 @@ router.post(
         },
       });
 
-     // กำหนดค่า path ให้ฉลาดขึ้น รองรับทั้งไฟล์เครื่อง, ไฟล์พรีอัปโหลด และลิงก์ Cloudinary เต็มๆ
+      // กำหนดค่า path ให้ฉลาดขึ้น รองรับทั้งไฟล์เครื่อง, ไฟล์พรีอัปโหลด และลิงก์ Cloudinary เต็มๆ
       let targetPath = '';
       if (req.file) {
         targetPath = req.file.path;
@@ -141,55 +121,52 @@ router.post(
       }
 
       if (updated.verificationStatus === PrismaVerificationStatus.VERIFIED) {
-  const alertPayload: DonationAlertPayload = {
-    donationId:  updated.id,
-    senderName:  updated.senderName,
-    message:     updated.message,
-    amount:      Number(updated.amount),
-    verifiedAt:  updated.updatedAt.toISOString(),
-  };
+        const alertPayload: DonationAlertPayload = {
+          donationId:  updated.id,
+          senderName:  updated.senderName,
+          message:     updated.message,
+          amount:      Number(updated.amount),
+          verifiedAt:  updated.updatedAt.toISOString(),
+        };
 
-  getIO().emit(SOCKET_EVENTS.DONATION_VERIFIED, alertPayload);
+        getIO().emit(SOCKET_EVENTS.DONATION_VERIFIED, alertPayload);
 
-  // Goal widget
-  await incrementGoalAmount(Number(updated.amount));
-  const freshSettings = await getSettings();
-  getIO().emit(SOCKET_EVENTS.GOAL_UPDATED, {
-    label:         freshSettings.goalLabel,
-    currentAmount: freshSettings.goalCurrentAmount,
-    targetAmount:  freshSettings.goalTargetAmount,
-  });
+        await incrementGoalAmount(Number(updated.amount));
+        const freshSettings = await getSettings();
+        getIO().emit(SOCKET_EVENTS.GOAL_UPDATED, {
+          label:         freshSettings.goalLabel,
+          currentAmount: freshSettings.goalCurrentAmount,
+          targetAmount:  freshSettings.goalTargetAmount,
+        });
 
-  // Top donators widget
-  const topDonators = await prisma.donation.groupBy({
-    by:      ['senderName'],
-    where:   { verificationStatus: PrismaVerificationStatus.VERIFIED },
-    _sum:    { amount: true },
-    orderBy: { _sum: { amount: 'desc' } },
-    take:    freshSettings.topDonatorsLimit,
-  });
-  getIO().emit(SOCKET_EVENTS.TOP_DONATORS_UPDATED, {
-    donators: topDonators.map((d) => ({
-      senderName: d.senderName,
-      total:      Number(d._sum.amount ?? 0),
-    })),
-  });
+        const topDonators = await prisma.donation.groupBy({
+          by:      ['senderName'],
+          where:   { verificationStatus: PrismaVerificationStatus.VERIFIED },
+          _sum:    { amount: true },
+          orderBy: { _sum: { amount: 'desc' } },
+          take:    freshSettings.topDonatorsLimit,
+        });
+        getIO().emit(SOCKET_EVENTS.TOP_DONATORS_UPDATED, {
+          donators: topDonators.map((d) => ({
+            senderName: d.senderName,
+            total:      Number(d._sum.amount ?? 0),
+          })),
+        });
 
-  // Subathon timer widget
-  const newEndsAt = await addTimerTime(Number(updated.amount));
-  getIO().emit(SOCKET_EVENTS.TIMER_UPDATED, {
-    endsAt:  newEndsAt?.toISOString() ?? null,
-    enabled: freshSettings.timerEnabled,
-  });
-}
+        const newEndsAt = await addTimerTime(Number(updated.amount));
+        getIO().emit(SOCKET_EVENTS.TIMER_UPDATED, {
+          endsAt:  newEndsAt?.toISOString() ?? null,
+          enabled: freshSettings.timerEnabled,
+        });
+      }
 
-const response: DonationSubmissionResponse = {
-  donationId: updated.id,
-  status:     updated.verificationStatus as VerificationStatus,
-  message:    failureMessage,
-};
+      const response: DonationSubmissionResponse = {
+        donationId: updated.id,
+        status:     updated.verificationStatus as VerificationStatus,
+        message:    failureMessage,
+      };
 
-return res.status(201).json(response);
+      return res.status(201).json(response);
 
     } catch (err) {
       console.error(err);
