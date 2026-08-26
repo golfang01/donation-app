@@ -31,24 +31,25 @@ export default function DonationPage() {
   const [mobileQrDataUrl,    setMobileQrDataUrl]    = useState<string | null>(null);
   const [slipFromPhone,      setSlipFromPhone]      = useState<string | null>(null);
   const [showPhoneUpload,    setShowPhoneUpload]    = useState(false);
+  const [isDragging,         setIsDragging]         = useState(false); // State สำหรับ Drag & Drop
   const [timerConfig, setTimerConfig] = useState<{
-  enabled: boolean;
-  baseAmount: number;
-  baseMinutes: number;
-} | null>(null);
-  
+    enabled: boolean;
+    baseAmount: number;
+    baseMinutes: number;
+  } | null>(null);
+
   const parsedAmount = Number(amount);
   const isValidAmt   = !!amount && !Number.isNaN(parsedAmount) && parsedAmount > 0;
 
   // Minutes added to the subathon timer for this donation amount
-const timerBonus = timerConfig && isValidAmt
-  ? (parsedAmount / timerConfig.baseAmount) * timerConfig.baseMinutes
-  : 0;
-const timerBonusLabel = timerBonus >= 1
-  ? `+${Math.round(timerBonus)} min`
-  : timerBonus > 0
-  ? `+${Math.round(timerBonus * 60)} sec`
-  : '';
+  const timerBonus = timerConfig && isValidAmt
+    ? (parsedAmount / timerConfig.baseAmount) * timerConfig.baseMinutes
+    : 0;
+  const timerBonusLabel = timerBonus >= 1
+    ? `+${Math.round(timerBonus)} min`
+    : timerBonus > 0
+    ? `+${Math.round(timerBonus * 60)} sec`
+    : '';
 
   // ── PromptPay QR ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -65,26 +66,26 @@ const timerBonusLabel = timerBonus >= 1
   }, [amount, isValidAmt, parsedAmount]);
 
   // Fetch subathon timer config so we can show the time-added incentive
-useEffect(() => {
-  api.get<{ enabled: boolean; timerBaseAmount: number; timerBaseMinutes: number }>(
-    '/api/widget/timer'
-  )
-    .then(({ data }) => {
-      if (data.enabled) {
-        setTimerConfig({
-          enabled:     data.enabled,
-          baseAmount:  data.timerBaseAmount,
-          baseMinutes: data.timerBaseMinutes,
-        });
-      }
-    })
-    .catch(() => {}); // non-critical — badge simply won't appear
-}, []);
+  useEffect(() => {
+    api.get<{ enabled: boolean; timerBaseAmount: number; timerBaseMinutes: number }>(
+      '/api/widget/timer'
+    )
+      .then(({ data }) => {
+        if (data.enabled) {
+          setTimerConfig({
+            enabled:     data.enabled,
+            baseAmount:  data.timerBaseAmount,
+            baseMinutes: data.timerBaseMinutes,
+          });
+        }
+      })
+      .catch(() => {}); // non-critical — badge simply won't appear
+  }, []);
 
   // ── Mobile cross-device upload ────────────────────────────────────────────
   useEffect(() => {
-   const origin = window.location.origin; // e.g. "https://your-app.vercel.app"
-const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
+    const origin = window.location.origin; // e.g. "https://your-app.vercel.app"
+    const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
     QRCode.toDataURL(url, { width: 160, margin: 2, color: { dark: '#18181b', light: '#ffffff' } })
       .then(setMobileQrDataUrl).catch(console.error);
 
@@ -100,6 +101,43 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
     socket.on(SOCKET_EVENTS.SLIP_UPLOADED, handle);
     return () => { socket.off(SOCKET_EVENTS.SLIP_UPLOADED, handle); socket.disconnect(); };
   }, [sessionId]);
+
+
+  // ── Drag & Drop Handlers ──────────────────────────────────────────────────
+  function handleDragOver(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDragEnter(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.match('image/jpeg') || file.type.match('image/png') || file.type.match('image/webp')) {
+        setSlipFile(file);
+        setSlipFromPhone(null);
+        setFormError(null);
+      } else {
+        setFormError('Please upload a valid image (JPEG, PNG, WEBP).');
+      }
+    }
+  }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     setSlipFile(e.target.files?.[0] ?? null);
@@ -151,7 +189,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Name */}
-          <div className="bg-white rounded-2xl shadow-sm border 	border-[#E5E3DD] p-6 space-y-4">
+          <div className="bg-white rounded-2xl shadow-sm border   border-[#E5E3DD] p-6 space-y-4">
             <h2 className="text-sm font-medium text-zinc-700">Your details</h2>
             <div className="space-y-3">
               <div>
@@ -162,7 +200,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
                   value={senderName}
                   onChange={(e) => setSenderName(e.target.value)}
                   placeholder="How should we credit you?"
-                  className="w-full rounded-xl border 	border-[#E5E3DD] bg-[#F9F8F6] px-4 py-2.5 text-sm text-[#1A1C1A] placeholder:text-[#6B726A] focus:outline-none focus:ring-2 focus:ring-[#4B5E53]/20 focus:border-[#4B5E53] transition-all"
+                  className="w-full rounded-xl border   border-[#E5E3DD] bg-[#F9F8F6] px-4 py-2.5 text-sm text-[#1A1C1A] placeholder:text-[#6B726A] focus:outline-none focus:ring-2 focus:ring-[#4B5E53]/20 focus:border-[#4B5E53] transition-all"
                 />
               </div>
               <div>
@@ -173,14 +211,14 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Say something to the stream…"
                   rows={2}
-                  className="w-full rounded-xl border 	border-[#E5E3DD] bg-[#F9F8F6] px-4 py-2.5 text-sm text-[#1A1C1A] placeholder:text-[#6B726A] focus:outline-none focus:ring-2 focus:ring-[#4B5E53]/20 focus:border-[#4B5E53] transition-all resize-none"
+                  className="w-full rounded-xl border   border-[#E5E3DD] bg-[#F9F8F6] px-4 py-2.5 text-sm text-[#1A1C1A] placeholder:text-[#6B726A] focus:outline-none focus:ring-2 focus:ring-[#4B5E53]/20 focus:border-[#4B5E53] transition-all resize-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Amount */}
-          <div className="bg-white rounded-2xl shadow-sm border 	border-[#E5E3DD] p-6 space-y-4">
+          <div className="bg-white rounded-2xl shadow-sm border   border-[#E5E3DD] p-6 space-y-4">
             <h2 className="text-sm font-medium text-zinc-700">Amount</h2>
 
             {/* Quick-select */}
@@ -191,7 +229,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
                   className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                     amount === String(v)
                       ? 'bg-[#4B5E53] border-[#4B5E53] text-white shadow-sm'
-                      : 'bg-white 	border-[#E5E3DD] text-zinc-600 hover:border-[#4B5E53] hover:text-[#4B5E53]'
+                      : 'bg-white   border-[#E5E3DD] text-zinc-600 hover:border-[#4B5E53] hover:text-[#4B5E53]'
                   }`}>
                   ฿{v}
                 </button>
@@ -202,12 +240,12 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B726A] text-sm font-medium">฿</span>
               {/* Subathon timer incentive badge */}
-{timerBonusLabel && (
-  <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-    {timerBonusLabel} added to the stream timer
-  </div>
-)}
+              {timerBonusLabel && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {timerBonusLabel} added to the stream timer
+                </div>
+              )}
               <input
                 type="number"
                 data-cy="amount-input"
@@ -216,7 +254,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="Custom amount"
-                className="w-full rounded-xl border 	border-[#E5E3DD] bg-[#F9F8F6] pl-8 pr-4 py-2.5 text-sm text-[#1A1C1A] placeholder:text-[#6B726A] focus:outline-none focus:ring-2 focus:ring-[#4B5E53]/20 focus:border-[#4B5E53] transition-all"
+                className="w-full rounded-xl border   border-[#E5E3DD] bg-[#F9F8F6] pl-8 pr-4 py-2.5 text-sm text-[#1A1C1A] placeholder:text-[#6B726A] focus:outline-none focus:ring-2 focus:ring-[#4B5E53]/20 focus:border-[#4B5E53] transition-all"
               />
             </div>
 
@@ -226,7 +264,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                   <div className="pt-2 flex flex-col items-center gap-2">
                     <p className="text-xs text-[#6B726A]">Scan with your banking app to pay</p>
-                    <div className="bg-white rounded-xl border 	border-[#E5E3DD] p-3 shadow-sm">
+                    <div className="bg-white rounded-xl border  border-[#E5E3DD] p-3 shadow-sm">
                       <img src={qrDataUrl} alt="PromptPay QR" className="w-48 h-48" data-cy="promptpay-qr" />
                     </div>
                     <p className="text-sm font-semibold text-[#1A1C1A]">฿{parsedAmount.toLocaleString()}</p>
@@ -238,7 +276,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
           </div>
 
           {/* Slip upload */}
-          <div className="bg-white rounded-2xl shadow-sm border 	border-[#E5E3DD] p-6 space-y-3">
+          <div className="bg-white rounded-2xl shadow-sm border   border-[#E5E3DD] p-6 space-y-3">
             <h2 className="text-sm font-medium text-zinc-700">Upload payment slip</h2>
 
             {slipFromPhone ? (
@@ -250,10 +288,20 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
             ) : (
               <>
                 {/* File drop zone */}
-                <label className="flex flex-col items-center gap-2 border-2 border-dashed 	border-[#E5E3DD] rounded-xl px-4 py-5 cursor-pointer hover:border-[#4B5E53]/40 hover:bg-[#4B5E53]/5 transition-all group">
-                  <Upload className="w-5 h-5 text-[#6B726A] group-hover:text-blue-400 transition-colors" />
-                  <span className="text-sm text-[#6B726A] group-hover:text-[#4B5E53] transition-colors">
-                    {slipFile ? slipFile.name : 'Tap to upload or drag a photo here'}
+                <label 
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`flex flex-col items-center gap-2 border-2 border-dashed rounded-xl px-4 py-5 cursor-pointer transition-all group ${
+                    isDragging 
+                      ? 'border-[#4B5E53] bg-[#4B5E53]/10' 
+                      : 'border-[#E5E3DD] hover:border-[#4B5E53]/40 hover:bg-[#4B5E53]/5'
+                  }`}
+                >
+                  <Upload className={`w-5 h-5 transition-colors ${isDragging ? 'text-[#4B5E53]' : 'text-[#6B726A] group-hover:text-blue-400'}`} />
+                  <span className={`text-sm transition-colors ${isDragging ? 'text-[#4B5E53] font-medium' : 'text-[#6B726A] group-hover:text-[#4B5E53]'}`}>
+                    {slipFile ? slipFile.name : (isDragging ? 'Drop it like it\'s hot!' : 'Tap to upload or drag a photo here')}
                   </span>
                   <input type="file" data-cy="slip-upload" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="hidden" />
                 </label>
@@ -272,7 +320,7 @@ const url = `${origin}/mobile-upload?sessionId=${sessionId}`;
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                       <div className="flex flex-col items-center gap-2 pt-1">
                         {mobileQrDataUrl && (
-                          <div className="bg-white rounded-xl border 	border-[#E5E3DD] p-2.5 shadow-sm">
+                          <div className="bg-white rounded-xl border  border-[#E5E3DD] p-2.5 shadow-sm">
                             <img src={mobileQrDataUrl} alt="Mobile upload QR" className="w-36 h-36" />
                           </div>
                         )}
@@ -324,7 +372,7 @@ function Result({ icon, title, body, action, onAction }: {
         <div className="flex justify-center mb-4">{icon}</div>
         <h2 className="text-xl font-semibold text-[#1A1C1A] mb-2">{title}</h2>
         <p className="text-sm text-[#6B726A] mb-6 leading-relaxed">{body}</p>
-        <button onClick={onAction} className="px-6 py-2.5 bg-white border 	border-[#E5E3DD] rounded-xl text-sm font-medium text-zinc-600 hover:border-[#4B5E53] hover:text-[#4B5E53] shadow-sm transition-all">
+        <button onClick={onAction} className="px-6 py-2.5 bg-white border   border-[#E5E3DD] rounded-xl text-sm font-medium text-zinc-600 hover:border-[#4B5E53] hover:text-[#4B5E53] shadow-sm transition-all">
           {action}
         </button>
       </div>
