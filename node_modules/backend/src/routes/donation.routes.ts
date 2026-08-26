@@ -68,8 +68,9 @@ router.post(
         }
       }
 
+      // กำหนด slipImageUrl ให้รับค่าจาก Cloudinary โดยตรง (รองรับทั้งอัปโหลดใหม่และพรีอัปโหลด)
       const slipImageUrl = req.file
-        ? `/uploads/${req.file.filename}`
+        ? req.file.path
         : preUploadedUrl!;
 
       const payload: DonationSubmissionPayload = {
@@ -90,10 +91,18 @@ router.post(
         },
       });
 
+     // กำหนดค่า path ให้ฉลาดขึ้น รองรับทั้งไฟล์เครื่อง, ไฟล์พรีอัปโหลด และลิงก์ Cloudinary เต็มๆ
+      let targetPath = '';
+      if (req.file) {
+        targetPath = req.file.path;
+      } else if (preUploadedUrl) {
+        targetPath = preUploadedUrl;
+      } else {
+        targetPath = slipImageUrl;
+      }
+
       const verificationResult = await verifySlip({
-        filePath: req.file
-          ? req.file.path
-          : `${__dirname}/../../uploads/${slipImageUrl.split('/uploads/')[1]}`,
+        filePath: targetPath,
         expectedAmount: payload.amount,
       });
 
