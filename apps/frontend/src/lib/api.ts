@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getMemoryToken } from './authToken';
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000',
+  baseURL: 'https://donation-app-m535.onrender.com',
 });
 
 api.interceptors.request.use((config) => {
