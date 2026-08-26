@@ -1,1 +1,16 @@
  cloud_name: 'rm60fj5a',         api_key: '484851685922827'   CLOUDINARY_API_SECRET'JJv60_08LubIRpbLC7Yi6QdlaPs'
+
+DIRECT_URL="postgresql://postgres.hnaqhihjcfcfjeksunjv:0894534550za@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+
+DATABASE_URL=postgresql://postgres.hnaqhihjcfcfjeksunjv:0894534550za@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+JWT_SECRET=iokujf7fmkchwuncbvoapruhgnvmsyrt
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_strong_password
+SLIPOK_BRANCH_ID=69294
+SLIPOK_API_KEY=slipok-xxxx-xxxx-xxxx
+SLIPOK_MODE=live
+STREAMER_ACCOUNT_SUFFIX=last_4_digits
+GOOGLE_TTS_API_KEY=not_needed_if_using_google_tts_api_package
+CORS_ORIGIN=https://your-app.vercel.app
+NODE_ENV=production
+PORT=4000
