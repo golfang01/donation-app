@@ -18,7 +18,7 @@ router.post('/', upload.single('slipImage'), async (req: Request, res: Response)
       return res.status(400).json({ error: 'slipImage file is required.' });
     }
 
-   // เนื่องจากเราใช้ Cloudinary ระบบจะส่ง URL เต็มๆ มาที่ req.file.path แล้ว
+    // เนื่องจาก Middleware อัปโหลดขึ้น Cloudinary แล้ว req.file.path จะเป็น URL เต็มๆ
     const slipUrl = req.file.path;
 
     const payload: SlipUploadedPayload = {
