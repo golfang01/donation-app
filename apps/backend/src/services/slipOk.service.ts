@@ -1,3 +1,5 @@
+import path from 'path';
+import os from 'os';
 import axios, { AxiosError } from 'axios';
 import fs from 'fs';
 import FormData from 'form-data';
@@ -71,20 +73,32 @@ async function verifySlipLive(params: VerifySlipParams): Promise<VerifySlipResul
     return { success: false, errorMessage: GENERIC_UNAVAILABLE_MESSAGE };
   }
 
-  const form = new FormData();
-  form.append('files', fs.createReadStream(params.filePath));
-  form.append('amount', params.expectedAmount.toString());
-  // log: true — lets SlipOK check the linked receiving account natively
-  // (error 1014) and skip charging quota on a re-submitted duplicate slip
-  // (error 1012). Requires the receiving account to be linked to this
-  // branch in the SlipOK dashboard, which it already is.
-  form.append('log', 'true');
+  let filePathToRead = params.filePath;
+  let tempFilePath: string | null = null;
 
   try {
+    // ถ้า filePath เป็น URL ของ Cloudinary ให้ดาวน์โหลดลงเครื่องชั่วคราวก่อน
+    if (filePathToRead.startsWith('http://') || filePathToRead.startsWith('https://')) {
+      const responseImg = await axios.get(filePathToRead, { responseType: 'arraybuffer', timeout: 10000 });
+      tempFilePath = path.join(os.tmpdir(), `slip-${Date.now()}.jpg`);
+      fs.writeFileSync(tempFilePath, responseImg.data);
+      filePathToRead = tempFilePath;
+    }
+
+    const form = new FormData();
+    form.append('files', fs.createReadStream(filePathToRead));
+    form.append('amount', params.expectedAmount.toString());
+    form.append('log', 'true');
+
     const response = await axios.post(SLIPOK_API_URL, form, {
       headers: { ...form.getHeaders(), 'x-authorization': SLIPOK_API_KEY },
       timeout: 15000,
     });
+
+    // ลบไฟล์ชั่วคราวนันทิ้งทันทีหลังส่งตรวจสอบเสร็จ
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
 
     const body = response.data;
 
@@ -97,9 +111,6 @@ async function verifySlipLive(params: VerifySlipParams): Promise<VerifySlipResul
       normalizeDigits(receiver?.account?.value) || normalizeDigits(receiver?.proxy?.value);
 
     if (!receiverDigits.endsWith(STREAMER_ACCOUNT_SUFFIX)) {
-      // Should rarely fire now that SlipOK's own log:true check (1014) runs
-      // first — kept as a backup in case the LINE LIFF-linked account ever
-      // drifts out of sync with what we expect.
       console.warn('[slipOk.service] Slip verified but receiver account did not match streamer account.');
       return {
         success: false,
@@ -114,6 +125,11 @@ async function verifySlipLive(params: VerifySlipParams): Promise<VerifySlipResul
       rawResponse: body,
     };
   } catch (err) {
+    // เคลียร์ไฟล์ชั่วคราวทิ้งกรณีเกิด Error
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch {}
+    }
+
     const axiosErr = err as AxiosError<{ code?: number; message?: string }>;
 
     if (axiosErr.response) {
