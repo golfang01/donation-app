@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "start:migrate": "npx prisma db push && node dist/server.js"
+    "start:migrate": "npx prisma db push && npx prisma db seed && node dist/server.js"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.json prisma/seed.ts"
