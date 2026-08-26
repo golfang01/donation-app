@@ -1,13 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { fromFile } from 'file-type';
-import fs from 'fs';
 import { upload } from '../middleware/upload.middleware';
 import { getIO } from '../sockets/socket.server';
 import type { SlipUploadedPayload } from '@donation-app/shared-types';
 import { SOCKET_EVENTS } from '@donation-app/shared-types';
 
 const router = Router();
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 router.post('/', upload.single('slipImage'), async (req: Request, res: Response) => {
   try {
@@ -21,14 +18,8 @@ router.post('/', upload.single('slipImage'), async (req: Request, res: Response)
       return res.status(400).json({ error: 'slipImage file is required.' });
     }
 
-    // Magic-byte validation — same as the main donation route.
-    const detectedType = await fromFile(req.file.path);
-    if (!detectedType || !ALLOWED_MIME_TYPES.includes(detectedType.mime)) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: 'Uploaded file is not a valid image.' });
-    }
-
-    const slipUrl = `/uploads/${req.file.filename}`;
+   // เนื่องจากเราใช้ Cloudinary ระบบจะส่ง URL เต็มๆ มาที่ req.file.path แล้ว
+    const slipUrl = req.file.path;
 
     const payload: SlipUploadedPayload = {
       sessionId: sessionId.trim(),
