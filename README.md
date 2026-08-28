@@ -13,7 +13,7 @@
 
 ---
 
-##How It Works (System Flow)
+## How It Works (System Flow)
 
 Donation Initiation: ผู้ใช้งานกรอกชื่อ ข้อความ และจำนวนเงิน ระบบจะสร้าง PromptPay QR Code ให้แบบ Real-time
 
