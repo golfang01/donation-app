@@ -1,4 +1,4 @@
-# Donation Platform (In Progress)
+# Donation Platform 
 
 📝 **About the Project**
 แพลตฟอร์มรับบริจาคสำหรับสตรีมเมอร์ (กำลังอยู่ในช่วงพัฒนา) โดยโปรเจกต์นี้ให้ความสำคัญกับการทำ Automated Testing ควบคู่ไปกับการพัฒนา (Shift-Left Testing) เพื่อควบคุมคุณภาพของระบบตั้งแต่เริ่มต้น
